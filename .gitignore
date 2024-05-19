@@ -1,0 +1,11 @@
+*
+
+!*.py
+
+!.gitignore
+!requirements.txt
+!Dockerfile
+!readme.md
+
+!app/
+!app/**/
