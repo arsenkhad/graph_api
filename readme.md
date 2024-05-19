@@ -1,8 +1,8 @@
 # GraphAPI
 
-<b>GraphAPI</b> is an API for working with graphs, stored in DOT and aDOT* format.
+**GraphAPI** is an API for working with graphs, stored in DOT and aDOT[^1] format.
 
-This API was created to be used as part of university project. This means this project won't be heavily maintained and will probably stay in in it's current state. Given project will use only a few of requests, provided by this API, so most of it might contain serious bugs and flaws. Please, do not consider using this app in production, it was created for learning purposes only.  
+This API was created to be used as part of university project. This means this project won't be heavily maintained and will probably stay in in it's current state. Given project will use only a few of requests, provided by this API, so most of it might contain serious bugs and flaws. Please, do not consider using this app in production, it was created for learning purposes only.
 
 ## Description
 
@@ -32,5 +32,7 @@ docker run -p 80:80 -v $(pwd)/graphs:/graphs --env-file .env graph_api
 
 ## To be implemented
 - `docker-compose.yml` file for easier setup and use of secrets instead of some eviroment variables.
-- <b>User creation.</b> Currently API works with existing users only.
-- <b>User access setting.</b> Similar to line above, API checks for existing access rights only.
+- **User creation.** Currently API works with existing users only.
+- **User access setting.** Similar to line above, API checks for existing access rights only.
+
+[^1]: **aDOT**, i.e. advanced DOT, is a DOT modification. Created in Bauman University for computation graphs and other scientific usages.
