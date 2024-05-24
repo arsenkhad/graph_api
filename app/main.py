@@ -258,10 +258,3 @@ async def delete_graph_edge(
     vert.del_edge(edge.next_vertex)
     save_project_by_pid(db, project_id, graph)
     return {'Message' : 'Success'}
-
-
-@app.get("/profile")
-async def get_user_data(
-    current_user: Annotated[models.User, Depends(get_current_user)],
-):
-    return current_user

@@ -380,7 +380,6 @@ class Graph :
 
         ordered_endpoints = [start_vertex.id, end_vertex]
         for path in paths:
-            print(*path)
             path_endpoints = [start_vertex.id]
             for vert in path:
                 if vert in branch_endpoints and vert not in path_endpoints:

@@ -67,6 +67,10 @@ def add_project(db: Session, project: schemas.ProjectCreate, dir: str):
     apply_change(db, db_project)
     db_project.project_path = dir + str(db_project.project_id) + '.gv'
     apply_change(db, db_project)
+
+    access_setting = schemas.AccessCreate(user_login=db_project.project_author, project_id=db_project.project_id, access_level=3)
+    add_access(db, access_setting)
+
     return db_project
 
 

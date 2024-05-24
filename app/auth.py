@@ -104,6 +104,11 @@ def check_access(
     db_access = crud.get_user_access(db, access)
     return (db_access and (db_access >= access_level))
 
+@auth.get("/auth")
+async def get_user_data(
+    current_user: Annotated[models.User, Depends(get_current_user)],
+):
+    return current_user
 
 @auth.post("/auth")
 async def login_for_access_token(
