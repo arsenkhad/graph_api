@@ -76,3 +76,7 @@ class Project(ProjectBase):
     project_id : int
     class Config:
         from_attributes = True
+
+class ProjectData(ProjectCreate, Project):
+    project_created : datetime
+    project_updated : datetime

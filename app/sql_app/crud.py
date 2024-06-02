@@ -3,6 +3,9 @@ import datetime
 
 from . import models, schemas
 
+def strip_project_path(db_project: models.Project):
+    return schemas.ProjectData(**db_project.__dict__)
+
 def get_user(db: Session, login: str):
     return db.get(models.User, login)
 
@@ -22,6 +25,10 @@ def get_user_projects(db: Session, login: str):
     if all_user_access.filter(models.UserAccess.project_id == None).first():
         return [project.project_id for project in db.query(models.Project)]
     return [item.project_id for item in all_user_access if item.access_level]
+
+def get_user_projects_data(db: Session, login: str):
+    db_project_ids = get_user_projects(db, login)
+    return [strip_project_path(get_project_by_id(db, project_id)) for project_id in  db_project_ids]
 
 def get_project_by_id(db: Session, project_id: int):
     return db.get(models.Project, project_id)

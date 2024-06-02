@@ -322,7 +322,7 @@ class Graph :
                 edge_copy['next_vertex'] = id
                 edges[id] = edge_copy
             vertices[vert.id] = {"id" : vert.id, "label" : vert.label, "edges" : edges, "metadata" : vert.metadata}
-        print(self.id)
+
         return {
             "id" : self.id,
             "label" : self.label,

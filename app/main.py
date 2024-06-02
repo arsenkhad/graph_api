@@ -30,6 +30,11 @@ non_exist_exception = HTTPException(
     detail="Object doesn`t exist"
 )
 
+illegal_input_exception = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST,
+    detail="Request is illegal"
+)
+
 app = FastAPI()
 app.include_router(auth)
 
@@ -81,14 +86,34 @@ def save_project_by_pid(db : Session, pid : int, project_graph : Graph):
 
 
 @app.get("/project")
-def get_available_projects(
+def get_available_projects_id(
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
     return {'projects': crud.get_user_projects(db, current_user.user_login)}
 
+@app.get("/project/info")
+def get_available_projects_info(
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    return {'projects': crud.get_user_projects_data(db, current_user.user_login)}
+
 
 @app.get("/project/{project_id}")
+async def get_project_info(
+    project_id : int,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    if not check_access(db, current_user, project_id, AccessLevels.read_access):
+        raise access_exception
+    db_project = crud.get_project_by_id(db, project_id)
+    if not db_project:
+        raise non_exist_exception
+    return {'project' : crud.strip_project_path(db_project)}
+
+@app.get("/project/{project_id}/graph")
 async def get_full_graph(
     project_id : int,
     current_user: Annotated[models.User, Depends(get_current_user)],
@@ -123,10 +148,10 @@ async def create_project(
     graph = get_project_by_pid(db, db_project.project_id)
     graph.get_vertex('__BEGIN__').add_edge(graph.get_vertex('__END__'))
     save_project_by_pid(db, db_project.project_id, graph)
-    return {'Message' : 'Success', 'Project_Created' : db_project}
+    return {'Message' : 'Success', 'project' : db_project}
 
 
-@app.post("/project/{project_id}")
+@app.post("/project/{project_id}/graph")
 async def save_full_graph(
     project_id : int,
     project : GraphModel,
@@ -150,7 +175,7 @@ async def add_new_node(
     if not check_access(db, current_user, project_id, AccessLevels.edit_access):
         raise access_exception
     new_node = crud.add_node(db, project_id, node)
-    return {'Message' : 'Success', 'Node_Created' : new_node}
+    return {'Message' : 'Success', 'node' : new_node}
 
 
 @app.post("/project/{project_id}/edge")
@@ -167,8 +192,10 @@ async def add_new_edge(
     edge_dump = {**edge.model_dump()}
     edge_dump['next_vertex'] = graph.get_vertex(edge.next_vertex)
     vert = graph.get_vertex(edge.cur_vertex)
-    if not vert or edge.cur_vertex == '__END__' or edge.next_vertex == '__BEGIN__':
-        raise status.HTTP_400_BAD_REQUEST
+    if not vert:
+        raise non_exist_exception
+    if edge.cur_vertex == '__END__' or edge.next_vertex == '__BEGIN__':
+        raise illegal_input_exception
     vert.add_edge(**edge_dump)
     save_project_by_pid(db, project_id, graph)
     return {'Message' : 'Success'}
@@ -184,7 +211,7 @@ async def update_project_info(
     if not check_access(db, current_user, project_id, AccessLevels.edit_access):
         raise access_exception
     upd_project = crud.update_project(db, project)
-    return {'Message' : 'Success', 'Project_Updated' : upd_project}
+    return {'Message' : 'Success', 'project' : upd_project}
 
 
 @app.patch("/project/{project_id}/node/{node_id}")
@@ -204,12 +231,12 @@ async def update_node_info(
         raise wrong_project_exception
 
     upd_node = crud.update_node(db, node)
-    return {'Message' : 'Success', 'Node_Updated' : upd_node}
+    return {'Message' : 'Success', 'node' : upd_node}
 
 
 
 @app.delete("/project/{project_id}")
-async def delete_full_graph(
+async def delete_full_project(
     project_id : int,
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Session = Depends(get_db)
@@ -254,7 +281,7 @@ async def delete_graph_edge(
     
     vert = graph.get_vertex(edge.cur_vertex)
     if not vert:
-        raise status.HTTP_400_BAD_REQUEST
+        raise non_exist_exception
     vert.del_edge(edge.next_vertex)
     save_project_by_pid(db, project_id, graph)
     return {'Message' : 'Success'}
