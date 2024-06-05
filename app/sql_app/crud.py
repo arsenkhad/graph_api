@@ -131,6 +131,8 @@ def del_node(db: Session, node_id: int, flush=True):
 def del_project(db: Session, project_id: int, flush=True):
     db_project = get_project_by_id(db, project_id)
     if db_project:
+        db_access = db.query(models.UserAccess).filter(models.UserAccess.project_id == project_id)
+        db.delete(db_access)
         db.delete(db_project)
         if flush:
             db.commit()
