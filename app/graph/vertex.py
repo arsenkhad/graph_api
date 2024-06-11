@@ -27,7 +27,7 @@ class Vertex :
             metadata (dict, optional): field for description, date of creation, etc. Defaults to {}.
         """
         self._id = id
-        self._label = label if label else self._id
+        self._label = str(label) if label else str(self._id)
         self._was_read = False
         self._edges : dict[str, dict] = {}
         self._selector = selector

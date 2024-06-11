@@ -2,6 +2,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, status, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import fileinput
 
 from .auth import auth, get_current_user, AccessLevels, check_access
 from .graph.graph import Graph
@@ -60,10 +61,12 @@ def save_project_by_pid(db : Session, pid : int, project_graph : Graph):
     if not project:
         raise wrong_project_exception
     updated = []
+    new_nodes = []
+    project_nodes = crud.get_project_nodes(db, pid)
     for v_id in project_graph.get_vertices_IDs():
         if v_id not in ['__BEGIN__', '__END__']:
             vert = project_graph.get_vertex(v_id)
-            node_new = schemas.NodeCreate(node_label=vert.label, node_description=vert.metadata['node_description'])
+            node_new = schemas.NodeCreate(node_label=str(vert.label), node_description=vert.metadata.get('node_description', ''))
             db_node_record = None
             if type(vert.id) == int:
                 db_node_record = crud.get_node_by_id(db, vert.id)
@@ -73,12 +76,27 @@ def save_project_by_pid(db : Session, pid : int, project_graph : Graph):
             if db_node_record:
                 updated.append(crud.update_node(db, schemas.Node(node_id=vert.id, project_id=pid, **node_new.model_dump()), flush=False))
             else:
-                updated.append(crud.add_node(db, pid, node_new, flush=False))
+                new_node = crud.add_node(db, pid, node_new, flush=False)
+                new_nodes.append((v_id, new_node))
     if project_graph.export_aDOT(project.project_path):
         raise save_fail_exception
+    for node in project_nodes:
+        if node not in updated:
+            crud.del_node(db, node.node_id)
     db.commit()
     for obj in updated:
         db.refresh(obj)
+
+    for _, node in new_nodes:
+            db.refresh(node)
+
+    with fileinput.FileInput(project.project_path, inplace=True) as file:
+        for line in file:
+            for id, node in new_nodes:
+                line = line.replace(str(id), str(node.node_id))
+            print(line, end='')
+
+
     crud.update_project(db, schemas.Project(project_id=pid))
     return None
 
@@ -245,15 +263,13 @@ async def delete_full_project(
         raise access_exception
     if not crud.del_project(db, project_id):
         raise non_exist_exception
-    for node in crud.get_project_nodes(db, project_id):
-        crud.del_node(db, node.node_id)
     return {'Message' : 'Success'}
 
 
 @app.delete("/project/{project_id}/node/{node_id}")
 async def delete_graph_node(
     project_id : int,
-    node_id : int | str,
+    node_id : int,
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
@@ -263,8 +279,6 @@ async def delete_graph_node(
     if graph.get_vertex(node_id):
         graph.del_vertex(node_id)
         save_project_by_pid(db, project_id, graph)
-    if not crud.del_node(db, node_id):
-        raise non_exist_exception
     return {'Message' : 'Success'}
 
 
