@@ -6,11 +6,14 @@ from . import models, schemas
 def strip_project_path(db_project: models.Project):
     return schemas.ProjectData(**db_project.__dict__)
 
-def get_user(db: Session, login: str):
-    return db.get(models.User, login)
+def get_user(db: Session, user_id: int):
+    return db.get(models.User, user_id)
+
+def get_user_by_name(db: Session, username: int):
+    return db.query(models.User).filter(models.User.username == username).first()
 
 def get_user_access(db: Session, access: schemas.Access):
-    all_user_access = db.query(models.UserAccess).filter(models.UserAccess.user_login == access.user_login)
+    all_user_access = db.query(models.UserAccess).filter(models.UserAccess.user_id == access.user_id)
     project_access = all_user_access.filter(models.UserAccess.project_id == access.project_id).first()
     full_access = all_user_access.filter(models.UserAccess.project_id == None).first()
 
@@ -20,14 +23,14 @@ def get_user_access(db: Session, access: schemas.Access):
         return project_access.access_level
     return None
 
-def get_user_projects(db: Session, login: str):
-    all_user_access = db.query(models.UserAccess).filter(models.UserAccess.user_login == login)
+def get_user_projects(db: Session, user_id: int):
+    all_user_access = db.query(models.UserAccess).filter(models.UserAccess.user_id == user_id)
     if all_user_access.filter(models.UserAccess.project_id == None).first():
         return [project.project_id for project in db.query(models.Project)]
     return [item.project_id for item in all_user_access if item.access_level]
 
-def get_user_projects_data(db: Session, login: str):
-    db_project_ids = get_user_projects(db, login)
+def get_user_projects_data(db: Session, user_id: int):
+    db_project_ids = get_user_projects(db, user_id)
     return [strip_project_path(get_project_by_id(db, project_id)) for project_id in  db_project_ids]
 
 def get_project_by_id(db: Session, project_id: int):
@@ -75,14 +78,14 @@ def add_project(db: Session, project: schemas.ProjectCreate, dir: str):
     db_project.project_path = dir + str(db_project.project_id) + '.gv'
     apply_change(db, db_project)
 
-    access_setting = schemas.AccessCreate(user_login=db_project.project_author, project_id=db_project.project_id, access_level=3)
+    access_setting = schemas.AccessCreate(user_id=db_project.project_author, project_id=db_project.project_id, access_level=3)
     add_access(db, access_setting)
 
     return db_project
 
 
 def update_access(db: Session, access: schemas.AccessCreate, flush=True):
-    db_access = db.query(models.UserAccess).filter(models.UserAccess.user_login == access.user_login, models.UserAccess.project_id == access.project_id).first()
+    db_access = db.query(models.UserAccess).filter(models.UserAccess.user_id == access.user_id, models.UserAccess.project_id == access.project_id).first()
     db_access.access_level = access.access_level
     if flush:
         apply_change(db, db_access)
@@ -111,8 +114,8 @@ def update_project(db: Session, project: schemas.Project, flush=True):
     return db_project
 
 
-def del_user(db: Session, user_login: str, flush=True):
-    db_user = db.get(models.User, user_login)
+def del_user(db: Session, user_id: int, flush=True):
+    db_user = db.get(models.User, user_id)
     if db_user:
         db.delete(db_user)
         if flush:

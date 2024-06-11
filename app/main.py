@@ -6,7 +6,7 @@ import fileinput
 
 from .auth import auth, get_current_user, AccessLevels, check_access
 from .graph.graph import Graph
-from .sql_app.db import get_db
+from .sql_app.db import get_db, Base, engine
 from .sql_app import models, schemas, crud
 from .graph_models import GraphModel, GraphModelReturn, GraphEdge, GraphEdgeDesc
 from .config import SAVE_DIRECTORY
@@ -35,6 +35,8 @@ illegal_input_exception = HTTPException(
     status_code=status.HTTP_400_BAD_REQUEST,
     detail="Request is illegal"
 )
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 app.include_router(auth)
@@ -108,14 +110,14 @@ def get_available_projects_id(
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
-    return {'projects': crud.get_user_projects(db, current_user.user_login)}
+    return {'projects': crud.get_user_projects(db, current_user.user_id)}
 
 @app.get("/project/info")
 def get_available_projects_info(
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
-    return {'projects': crud.get_user_projects_data(db, current_user.user_login)}
+    return {'projects': crud.get_user_projects_data(db, current_user.user_id)}
 
 
 @app.get("/project/{project_id}")
@@ -161,7 +163,7 @@ async def create_project(
     current_user: Annotated[models.User, Depends(get_current_user)],
     db: Session = Depends(get_db)
 ):
-    project = schemas.ProjectCreate(project_author = current_user.user_login, **project.model_dump())
+    project = schemas.ProjectCreate(project_author = current_user.user_id, **project.model_dump())
     db_project = crud.add_project(db, project, dir=SAVE_DIRECTORY)
     graph = get_project_by_pid(db, db_project.project_id)
     graph.get_vertex('__BEGIN__').add_edge(graph.get_vertex('__END__'))

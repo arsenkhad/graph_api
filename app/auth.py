@@ -58,10 +58,10 @@ def get_password_hash(password):
 
 
 def authenticate_user(db : Session, user_cred : schemas.UserCredAuth):
-    user = crud.get_user(db, user_cred.user_login)
+    user = crud.get_user_by_name(db, user_cred.user_login)
     if not user:
         return False
-    if not verify_password(user_cred.user_password, user.user_password):
+    if not verify_password(user_cred.user_password, user.password):
         return False
     return user
 
@@ -82,13 +82,12 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Se
     )
     try:
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
-        user_login: str = payload.get("sub")
-        if user_login is None:
+        user_id: int = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
-        token_data = schemas.UserCred(user_login=user_login)
     except JWTError:
         raise credentials_exception
-    user = crud.get_user(db, token_data.user_login)
+    user = crud.get_user(db, user_id)
     if user is None:
         raise credentials_exception
     return user
@@ -100,7 +99,7 @@ def check_access(
     project_id: int,
     access_level: AccessLevels = AccessLevels.read_access,
 ):
-    access = schemas.Access(user_login=current_user.user_login, project_id=project_id)
+    access = schemas.Access(user_id=current_user.user_id, project_id=project_id)
     db_access = crud.get_user_access(db, access)
     return (db_access and (db_access >= access_level))
 
@@ -124,7 +123,7 @@ async def login_for_access_token(
         )
     access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data = {"sub": user.user_login},
+        data = {"sub": user.user_id},
         expires_delta = access_token_expires
     )
     return Token(access_token=access_token, token_type="bearer")
