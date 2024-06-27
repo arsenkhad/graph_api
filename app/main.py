@@ -131,7 +131,10 @@ async def get_project_info(
     db_project = crud.get_project_by_id(db, project_id)
     if not db_project:
         raise non_exist_exception
-    return {'project' : crud.strip_project_path(db_project)}
+
+    access = schemas.Access(user_id=current_user.user_id, project_id=project_id)
+    user_access = crud.get_user_access(db, access)
+    return {'project' : crud.strip_project_path(db_project), 'access' : user_access}
 
 @app.get("/project/{project_id}/graph")
 async def get_full_graph(
@@ -144,6 +147,15 @@ async def get_full_graph(
     graph : Graph = get_project_by_pid(db, project_id)
     return GraphModelReturn(**graph.export_dict())
 
+@app.get("/project/{project_id}/users")
+async def get_project_users(
+    project_id : int,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    if not check_access(db, current_user, project_id, AccessLevels.read_access):
+        raise access_exception
+    return {'users' : crud.get_project_users(db, project_id)}
 
 @app.get("/project/{project_id}/chapters")
 async def get_ordered_chapters(
@@ -221,6 +233,27 @@ async def add_new_edge(
     return {'Message' : 'Success'}
 
 
+@app.post("/project/{project_id}/users/{user_id}")
+async def add_new_access(
+    project_id : int,
+    user_id : int,
+    access_level : int,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    if not check_access(db, current_user, project_id, AccessLevels.edit_access):
+        raise access_exception
+    if (access_level not in [AccessLevels.read_access, AccessLevels.edit_access]) or user_id == current_user.user_id:
+        raise illegal_input_exception
+
+    access = schemas.AccessCreate(user_id=user_id, project_id=project_id, access_level=access_level)
+    if crud.get_user_access(db, access):
+        crud.update_access(db, access)
+    else:
+        crud.add_access(db, access)
+    return {'Message' : 'Success'}
+
+
 @app.patch("/project/{project_id}")
 async def update_project_info(
     project_id : int,
@@ -264,6 +297,22 @@ async def delete_full_project(
     if not check_access(db, current_user, project_id, AccessLevels.full_access):
         raise access_exception
     if not crud.del_project(db, project_id):
+        raise non_exist_exception
+    return {'Message' : 'Success'}
+
+
+@app.delete("/project/{project_id}/users/{user_id}")
+async def delete_user_access(
+    project_id : int,
+    user_id : int,
+    current_user: Annotated[models.User, Depends(get_current_user)],
+    db: Session = Depends(get_db)
+):
+    if not check_access(db, current_user, project_id, AccessLevels.edit_access):
+        raise access_exception
+    
+    access = schemas.Access(user_id=user_id, project_id=project_id)
+    if not crud.del_access(db, access):
         raise non_exist_exception
     return {'Message' : 'Success'}
 

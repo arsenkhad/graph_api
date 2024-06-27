@@ -12,7 +12,7 @@ def get_user(db: Session, user_id: int):
 def get_user_by_name(db: Session, username: int):
     return db.query(models.User).filter(models.User.username == username).first()
 
-def get_user_access(db: Session, access: schemas.Access):
+def get_user_access(db: Session, access: schemas.Access | schemas.AccessCreate):
     all_user_access = db.query(models.UserAccess).filter(models.UserAccess.user_id == access.user_id)
     project_access = all_user_access.filter(models.UserAccess.project_id == access.project_id).first()
     full_access = all_user_access.filter(models.UserAccess.project_id == None).first()
@@ -22,6 +22,11 @@ def get_user_access(db: Session, access: schemas.Access):
     if project_access:
         return project_access.access_level
     return None
+
+def get_project_users(db: Session, project_id: int):
+    # Warning: this function doesn't list superusers with access to all projects without direct access to this project
+    project_access = db.query(models.UserAccess).filter(models.UserAccess.project_id == project_id)
+    return [{'user_id' : access.user_id, 'user_access' : access.access_level} for access in project_access]
 
 def get_user_projects(db: Session, user_id: int):
     all_user_access = db.query(models.UserAccess).filter(models.UserAccess.user_id == user_id)
@@ -113,13 +118,22 @@ def update_project(db: Session, project: schemas.Project, flush=True):
         apply_change(db, db_project)
     return db_project
 
+def del_access(db: Session, access: schemas.Access, flush=True):
+    db_access = db.query(models.UserAccess).filter(models.UserAccess.user_id == access.user_id, models.UserAccess.project_id == access.project_id).first()
+    if db_access:
+        db.delete(db_access)
+        update_project(db, schemas.Project(project_id=access.project_id), flush=flush)
+        if flush:
+            db.commit()
+            return True
+    return db_access
 
 def del_user(db: Session, user_id: int, flush=True):
     db_user = db.get(models.User, user_id)
     if db_user:
         db.delete(db_user)
         if flush:
-            apply_change(db, db_user)
+            db.commit()
             return True
     return db_user
 
