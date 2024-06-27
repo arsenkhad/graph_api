@@ -30,9 +30,12 @@ docker build --tag=graph_api .
 docker run -p 80:80 -v $(pwd)/graphs:/graphs --env-file .env graph_api
 ```
 
+### API Requests
+To get a full list of possible API requests in your browser go to `/docs` page of running app[^2].
+
 ## To be implemented
 - `docker-compose.yml` file for easier setup and use of secrets instead of some eviroment variables.
 - **User creation.** Currently API works with existing users only.
-- **User access setting.** Similar to line above, API checks for existing access rights only.
 
 [^1]: **aDOT**, i.e. advanced DOT, is a DOT modification. Created in Bauman University for computation graphs and other scientific usages.
+[^2]: **Standart FastAPI feature**. For more information check [this page](https://fastapi.tiangolo.com/features/#automatic-docs).
